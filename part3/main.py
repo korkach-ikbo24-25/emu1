@@ -2,10 +2,40 @@ import os
 import sys
 import socket
 import argparse
+import zipfile
 import tkinter as tk
 from tkinter import scrolledtext
 from vfs import VFS, VFSError
 from commands import Shell
+
+def ensure_vfs():
+    base = os.path.join(os.path.dirname(__file__), 'vfs')
+    os.makedirs(base, exist_ok=True)
+
+    def build(filename, files):
+        path = os.path.join(base, filename)
+        if not os.path.exists(path):
+            with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for name, data in files.items():
+                    if isinstance(data, str):
+                        data = data.encode('utf-8')
+                    zf.writestr(name, data)
+            print(f"[VFS] Создан архив: {filename}")
+
+    build('minimal.zip', {
+        'hello.txt': 'Привет из VFS\n',
+    })
+    build('several.zip', {
+        'readme.md':    'readme из VFS\n',
+        'data/a.txt':   'содержимое a.txt\n',
+        'data/b.txt':   'содержимое b.txt\n',
+        'data/bin.dat': bytes(range(256)),
+    })
+    build('deep.zip', {
+        'level1/level2/level3/deep.txt':     'глубокий файл\n',
+        'level1/level2/level3/level4/1.txt': 'текст 1\n',
+        'level1/level2/level3/level4/2.txt': 'текст 2\n',
+    })
 
 def build_title():
     user = os.environ.get('USER') or os.environ.get('USERNAME') or 'user'
@@ -96,6 +126,9 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    #создаем zip vfs перед запуском
+    ensure_vfs()
 
     if args.debug:
         print(f"[DEBUG] vfs          = {args.vfs!r}")
