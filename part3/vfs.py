@@ -1,6 +1,4 @@
 import zipfile
-import io
-import base64
 from pathlib import PurePosixPath
 
 class VFSError(Exception):
@@ -14,7 +12,6 @@ class VFS:
             self._load_zip(zip_path)
         self._ensure_root()
 
-    #загрузка
     def _load_zip(self, zip_path: str):
         try:
             with zipfile.ZipFile(zip_path, 'r') as zf:
@@ -32,7 +29,6 @@ class VFS:
     def _ensure_root(self):
         self.files.setdefault('/', b'')
 
-    #утилиты
     def _normalize(self, path: str) -> str:
         if not path.startswith('/'):
             path = str(PurePosixPath(self.cwd) / path)
@@ -50,17 +46,24 @@ class VFS:
     def _is_dir(self, path: str) -> bool:
         if path == '/':
             return True
-        return path in self.files and (path.endswith('/') or any(
-            k.startswith(path + '/') for k in self.files
-        ))
+        
+        #если это явная запись директории
+        if path + '/' in self.files:
+            return True
+            
+        #если есть какой-либо файл, который начинается с этой папки
+        prefix = path + '/'
+        if any(k.startswith(prefix) for k in self.files):
+            return True
+            
+        return False
 
-    #публичное API
     def resolve(self, path: str) -> str:
         return self._normalize(path)
 
     def exists(self, path: str) -> bool:
         p = self._normalize(path)
-        return p == '/' or p in self.files or self._is_dir(p)
+        return p == '/' or p in self.files or p + '/' in self.files or self._is_dir(p)
 
     def listdir(self, path: str) -> list[str]:
         p = self._normalize(path)
