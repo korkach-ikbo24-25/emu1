@@ -7,7 +7,7 @@ class ParseError(Exception):
 _VAR_RE = re.compile(r'\$(\w+|\{[^}]+\})')
 
 def expand_vars(token: str) -> str:
-    """Раскрывает $VAR и ${VAR} из реального окружения ОС."""
+    #раскрывает $VAR и ${VAR} из реального окружения ОС
     def repl(m):
         name = m.group(1)
         if name.startswith('{') and name.endswith('}'):
@@ -16,7 +16,7 @@ def expand_vars(token: str) -> str:
     return _VAR_RE.sub(repl, token)
 
 def tokenize(line: str) -> list[str]:
-    """Простейший токенайзер с поддержкой кавычек."""
+    #токенайзер с поддержкой кавычек
     tokens = []
     cur = ''
     quote = None
