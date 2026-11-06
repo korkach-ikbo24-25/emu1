@@ -2,6 +2,7 @@ import base64
 from vfs import VFS, VFSError
 from parser import tokenize, ParseError
 
+# ошибка, если пользователь ввел команду неправильно
 class CommandError(Exception):
     pass
 
@@ -9,30 +10,39 @@ class Shell:
     def __init__(self, vfs: VFS):
         self.vfs = vfs
         self.exit_requested = False
+        # словарь всех поддерживаемых команд
         self.commands = {
-            'ls':   self.cmd_ls,
-            'cd':   self.cmd_cd,
-            'pwd':  self.cmd_pwd,
-            'cat':  self.cmd_cat,
-            'echo': self.cmd_echo,
-            'help': self.cmd_help,
-            'exit': self.cmd_exit,
+            'ls':   self.cmd_ls, #показывает файлы в тек директории
+            'cd':   self.cmd_cd, #change directory
+            'pwd':  self.cmd_pwd, #полный путь
+            'cat':  self.cmd_cat, #выводит содержимое файла
+            'echo': self.cmd_echo, #выводит, что написано
+            'help': self.cmd_help, #список всех команд
+            'exit': self.cmd_exit, #выход
         }
 
     def execute(self, line):
+        # главный метод: принимает строку, выполняет команду и возвращает текст
         line = line.strip()
         if not line or line.startswith('#'):
             return ''
+            
         try:
             tokens = tokenize(line)
         except ParseError as e:
             return f"parse error: {e}"
+            
         if not tokens:
             return ''
+        
+        # первое слово - команда, остальные - аргументы
         cmd, args = tokens[0], tokens[1:]
         fn = self.commands.get(cmd)
+        
         if not fn:
             return f"{cmd}: команда не найдена"
+            
+        # пытаемся выполнить, ловим ошибки файловой системы
         try:
             return fn(args)
         except (CommandError, VFSError) as e:
@@ -41,11 +51,13 @@ class Shell:
             return f"{cmd}: внутренняя ошибка: {e}"
 
     def cmd_ls(self, args):
+        # если аргумент не передан, показываем текущую папку
         path = args[0] if args else self.vfs.getcwd()
         items = self.vfs.listdir(path)
         return '\n'.join(items) if items else ''
 
     def cmd_cd(self, args):
+        # без аргументов возвращаемся в корень
         if not args:
             self.vfs.chdir('/')
         else:
@@ -56,17 +68,21 @@ class Shell:
         return self.vfs.getcwd()
 
     def cmd_echo(self, args):
+        # просто выводим все, что передали
         return ' '.join(args)
 
     def cmd_cat(self, args):
+        # читаем файл (или несколько файлов)
         if not args:
             raise CommandError("укажите файл")
         out = []
         for f in args:
             data = self.vfs.read_file(f)
             try:
+                # пытаемся декодировать как текст
                 out.append(data.decode('utf-8'))
             except UnicodeDecodeError:
+                # если не получилось, значит файл бинарный - перевод в base64
                 out.append(base64.b64encode(data).decode('ascii'))
         return '\n'.join(out)
 
@@ -74,5 +90,6 @@ class Shell:
         return "Доступно: " + ', '.join(sorted(self.commands))
 
     def cmd_exit(self, args):
+        # ставим флаг, чтобы main.py понял, что пора закрываться
         self.exit_requested = True
         return "Завершение работы..."
